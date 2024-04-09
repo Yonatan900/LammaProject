@@ -78,7 +78,6 @@ class SeamImage:
         # padding the (h,w) plane
         gs_img = np.pad(gs_img, pad_width=((1, 1), (1, 1), (0, 0)), mode='constant', constant_values=0.5)
         return gs_img
-        raise NotImplementedError("TODO: Implement SeamImage.rgb_to_grayscale")
 
     # @NI_decor
     def calc_gradient_magnitude(self):
@@ -93,13 +92,12 @@ class SeamImage:
             - np.gradient or other off-the-shelf tools are NOT allowed, however feel free to compare yourself to them
         """
         gradient_arr = np.zeros_like(self.resized_gs)
-
         # calculate gradients in x and y directions
         # the array is padded, so we dismiss the outer rows and columns
         for i in range(1, self.h - 1):
             for j in range(1, self.w - 1):
-                gx = self.resized_gs[i + 1, j] - self.resized_gs[i - 1, j]
-                gy = self.resized_gs[i, j + 1] - self.resized_gs[i, j - 1]
+                gx = self.resized_gs[i - 1, j] - self.resized_gs[i, j]
+                gy = self.resized_gs[i, j - 1] - self.resized_gs[i, j]
 
                 # calculate magnitude
                 gradient_arr[i, j] = np.sqrt(gx ** 2 + gy ** 2)
@@ -109,7 +107,6 @@ class SeamImage:
         print(gradient_arr.shape)
         return gradient_arr
 
-        raise NotImplementedError("TODO: Implement SeamImage.calc_gradient_magnitude")
 
     def calc_M(self):
         pass
@@ -179,21 +176,22 @@ class VerticalSeamImage(SeamImage):
             for j in range(self.w):
                 cell_energy = self.E[i, j]
 
-                cl_cost = abs(self.resized_gs[i, j + 1] - self.resized_gs[i, j - 1]) + abs(
-                    self.resized_gs[i - 1, j] - self.resized_gs[i, j - 1])
-                cv_cost = abs(self.resized_gs[i, j + 1] - self.resized_gs[i, j - 1])
-                cr_cost = abs(self.resized_gs[i, j + 1] - self.resized_gs[i, j - 1]) + abs(
-                    self.resized_gs[i, j + 1] - self.resized_gs[i, j + 1])
+                cl_cost = abs(self.resized_gs[i, j -1] - self.resized_gs[i, j + 1]) + abs(
+                    self.resized_gs[i, j-1] - self.resized_gs[i-1, j])
 
-                left_cost = m_img[i - 1, -1] + cl_cost
+                cv_cost = abs(self.resized_gs[i, j + 1] - self.resized_gs[i, j - 1])
+
+                cr_cost = abs(self.resized_gs[i, j + 1] - self.resized_gs[i-1, j]) + abs(
+                    self.resized_gs[i, j + 1] - self.resized_gs[i, j -1])
+
+                left_cost = m_img[i - 1, j -1] + cl_cost
                 mid_cost = m_img[i - 1, j] + cv_cost
                 right_cost = m_img[i - 1, j + 1] + cr_cost
                 min_cell = min(left_cost, mid_cost, right_cost)
-
                 m_img[i, j] = cell_energy + min_cell
-        print(m_img.shape)
+
+
         return m_img
-        raise NotImplementedError("TODO: Implement SeamImage.calc_M")
 
     # @NI_decor
     def seams_removal(self, num_remove: int):
@@ -310,7 +308,7 @@ class VerticalSeamImage(SeamImage):
 
     # @NI_decor
     @staticmethod
-    # @jit(nopython=True)
+    @jit(nopython=True)
     def calc_bt_mat(M, E, backtrack_mat):
         """ Fills the BT back-tracking index matrix. This function is static in order to support Numba. To use it, uncomment the decorator above.
         
