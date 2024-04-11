@@ -112,7 +112,6 @@ class SeamImage:
         pass
 
     def rotate_mats(self, clockwise):
-        # todo - bar - we forgot this, we need to change it if possible to be ours
         k = -1 if clockwise else 1
         self.resized_rgb = np.rot90(self.resized_rgb, k)
         self.resized_gs = np.rot90(self.resized_gs, k)
@@ -132,7 +131,6 @@ class SeamImage:
         pass
 
     def remove_seam(self):
-        # todo - bar - completly copied - cahnge
         seam_to_remove = self.seam_history[-1]
         self.w -= 1
         mask = np.ones_like(self.resized_gs, dtype=bool)
@@ -212,7 +210,7 @@ class VerticalSeamImage(SeamImage):
         return m_img
 
     # @NI_decor
-    def seams_removal(self, num_remove: int, flag : str): # flag is bar idea - remove
+    def seams_removal(self, num_remove: int):
         """ Iterates num_remove times and removes num_remove vertical seams
 
         Parameters:
@@ -239,15 +237,13 @@ class VerticalSeamImage(SeamImage):
         for i in range(num_remove):
             self.init_mats()
             VerticalSeamImage.calc_bt_mat(self.M, self.E, self.backtrack_mat)
-            # todo - if we want to backtrack inside M - we need to remove this
             self.backtrack_seam()
-            #  todo - understand this
             self.update_ref_mat()
             self.remove_seam()
-            self.paint_seam(flag) # todo bars special code, he invented this function
+            self.paint_seam("v_or_h_flag")
 
 
-    def paint_seam(self,v_or_h_flag:str): # todo -  bar idea - change back to seamS
+    def paint_seam(self,v_or_h_flag:str):
         current_seam = self.seam_history[-1]
         if v_or_h_flag == "horizontal":
             for i, s_i in enumerate(current_seam):
@@ -257,12 +253,16 @@ class VerticalSeamImage(SeamImage):
                 self.cumm_mask[self.idx_map_v[i, s_i], self.idx_map_h[i, s_i]] = False
 
 
+    def paint_seams(self):
+        for s in self.seam_history:
+            for i, s_i in enumerate(s):
+                self.cumm_mask[self.idx_map_v[i, s_i], self.idx_map_h[i, s_i]] = False
         cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
         cumm_mask_rgb = cumm_mask_rgb.squeeze()
         self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1, 0, 0])
         self.seam_history.pop()
 
-    # todo - bar - recreate paint seams, why did he change it to paint a single seam
+
     def init_mats(self):
         self.E = self.calc_gradient_magnitude()
         self.M = self.calc_M()
@@ -276,10 +276,9 @@ class VerticalSeamImage(SeamImage):
         Parameters:
             num_remove (int): number of horizontal seam to be removed
         """
-        # todo - bar - understand why this is needed, also, why did he use idx_v in the horizontal function
         self.idx_map = self.idx_map_v
         self.rotate_mats(clockwise=True)
-        self.seams_removal(num_remove, "horizontal")
+        self.seams_removal(num_remove)
         self.rotate_mats(clockwise=False)
 
     # @NI_decor
@@ -289,13 +288,11 @@ class VerticalSeamImage(SeamImage):
         Parameters:
             num_remove (int): umber of vertical seam to be removed
         """
-        # todo - bar - understand why this is needed, also, why did he use idx_v in the vertical function
         self.idx_map = self.idx_map_h
-        self.seams_removal(num_remove, "veritcal")
+        self.seams_removal(num_remove)
 
     # @NI_decor
     def backtrack_seam(self):
-        # todo - bar - improve to be backtracking with lookahead
         """ Backtracks a seam for Seam Carving as taught in lecture
         """
         seam = []
@@ -316,8 +313,6 @@ class VerticalSeamImage(SeamImage):
         In order to apply the removal, you might want to extend the seam mask to support 3 channels (rgb) using: 3d_mak = np.stack([1d_mask] * 3, axis=2), and then use it to create a resized version.
         """
     #     call super
-        # todo - bar - he used the function in the parent class,
-        #  why did he do that? lets move it back here to be different from him
         super().remove_seam()
 
     # @NI_decor
@@ -360,7 +355,7 @@ class VerticalSeamImage(SeamImage):
 
     # @NI_decor
     @staticmethod
-    @jit(nopython=True)
+    # @jit(nopython=True)
     def calc_bt_mat(M, E, backtrack_mat):
         """ Fills the BT back-tracking index matrix. This function is static in order to support Numba. To use it, uncomment the decorator above.
 
@@ -371,7 +366,6 @@ class VerticalSeamImage(SeamImage):
         Guidelines & hints:
             np.ndarray is a rederence type. changing it here may affected outsde.
         """
-        # todo - bar - understand this, also remove the second line here, im pretty sure my first kline is just as good
         h, w ,_= M.shape
         h, w = M.shape[0],M.shape[1]
         for i in range(1, h):
