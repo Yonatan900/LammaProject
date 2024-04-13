@@ -98,7 +98,6 @@ class SeamImage:
 
         return np.clip(np.sqrt(np.square(diff_downward) + np.square(diff_right)), 0, 1)
 
-
     def calc_M(self):
         pass
 
@@ -112,14 +111,15 @@ class SeamImage:
         pass
 
     def rotate_mats(self, clockwise):
-        # todo - bar - we forgot this, we need to change it if possible to be ours
-        k = -1 if clockwise else 1
-        self.resized_rgb = np.rot90(self.resized_rgb, k)
-        self.resized_gs = np.rot90(self.resized_gs, k)
-        self.seams_rgb = np.rot90(self.seams_rgb, k)
-        self.idx_map_h = np.rot90(self.idx_map_h, k)
-        self.idx_map_v = np.rot90(self.idx_map_v, -k)
-        self.h , self.w = self.w , self.h
+        self.resized_gs = np.rot90(self.resized_gs, -1 if clockwise else 1)
+
+        self.resized_rgb = np.rot90(self.resized_rgb, -1 if clockwise else 1)
+        self.seams_rgb = np.rot90(self.seams_rgb, -1 if clockwise else 1)
+
+        self.idx_map_h = np.rot90(self.idx_map_h, -1 if clockwise else 1)
+        self.idx_map_v = np.rot90(self.idx_map_v, --1 if clockwise else 1)
+
+        self.h, self.w = self.resized_gs.shape[:2]
 
     def init_mats(self):
         pass
@@ -132,19 +132,7 @@ class SeamImage:
         pass
 
     def remove_seam(self):
-        # todo - bar - completly copied - cahnge
-        seam_to_remove = self.seam_history[-1]
-        self.w -= 1
-        mask = np.ones_like(self.resized_gs, dtype=bool)
-
-        for row,col in enumerate(seam_to_remove):
-            mask[row,col] = False
-            self.mask[row,col] = False
-
-        self.resized_gs = self.resized_gs[mask].reshape(self.h, self.w ,1)
-        mask = np.squeeze(np.stack([mask]*3,axis=2))
-        self.resized_rgb = self.resized_rgb[mask].reshape(self.h,self.w,3)
-        self.mask = np.squeeze(self.mask,axis=2)
+        pass
 
     def reinit(self):
         """ re-initiates instance
@@ -186,12 +174,10 @@ class VerticalSeamImage(SeamImage):
         rolled_down = np.roll(self.E, 1, axis=0)
         rolled_down[0, :] = 0
 
-
-        cl = np.abs(rolled_right- rolled_down)+ np.abs(rolled_right - rolled_left)
+        cl = np.abs(rolled_right - rolled_down) + np.abs(rolled_right - rolled_left)
         cv = np.abs(rolled_left - rolled_right)
         cr = np.abs(rolled_right - rolled_left) + np.abs(rolled_left - rolled_down)
 
-        m_img[0, :] = self.E[0, :] # todo remove
         m_img[1:, :] = np.inf
 
         # todo - refactor cheating
@@ -212,7 +198,7 @@ class VerticalSeamImage(SeamImage):
         return m_img
 
     # @NI_decor
-    def seams_removal(self, num_remove: int, flag : str): # flag is bar idea - remove
+    def seams_removal(self, num_remove: int, flag: str):  # flag is bar idea - remove
         """ Iterates num_remove times and removes num_remove vertical seams
 
         Parameters:
@@ -241,13 +227,11 @@ class VerticalSeamImage(SeamImage):
             VerticalSeamImage.calc_bt_mat(self.M, self.E, self.backtrack_mat)
             # todo - if we want to backtrack inside M - we need to remove this
             self.backtrack_seam()
-            #  todo - understand this
             self.update_ref_mat()
             self.remove_seam()
-            self.paint_seam(flag) # todo bars special code, he invented this function
+            self.paint_seam(flag)  # todo bars special code, he invented this function
 
-
-    def paint_seam(self,v_or_h_flag:str): # todo -  bar idea - change back to seamS
+    def paint_seam(self, v_or_h_flag: str):  # todo -  bar idea - change back to seamS
         current_seam = self.seam_history[-1]
         if v_or_h_flag == "horizontal":
             for i, s_i in enumerate(current_seam):
@@ -256,13 +240,11 @@ class VerticalSeamImage(SeamImage):
             for i, s_i in enumerate(current_seam):
                 self.cumm_mask[self.idx_map_v[i, s_i], self.idx_map_h[i, s_i]] = False
 
-
         cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
         cumm_mask_rgb = cumm_mask_rgb.squeeze()
         self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1, 0, 0])
         self.seam_history.pop()
 
-    # todo - bar - recreate paint seams, why did he change it to paint a single seam
     def init_mats(self):
         self.E = self.calc_gradient_magnitude()
         self.M = self.calc_M()
@@ -276,7 +258,6 @@ class VerticalSeamImage(SeamImage):
         Parameters:
             num_remove (int): number of horizontal seam to be removed
         """
-        # todo - bar - understand why this is needed, also, why did he use idx_v in the horizontal function
         self.idx_map = self.idx_map_v
         self.rotate_mats(clockwise=True)
         self.seams_removal(num_remove, "horizontal")
@@ -289,7 +270,6 @@ class VerticalSeamImage(SeamImage):
         Parameters:
             num_remove (int): umber of vertical seam to be removed
         """
-        # todo - bar - understand why this is needed, also, why did he use idx_v in the vertical function
         self.idx_map = self.idx_map_h
         self.seams_removal(num_remove, "veritcal")
 
@@ -315,10 +295,19 @@ class VerticalSeamImage(SeamImage):
         Guidelines & hints:
         In order to apply the removal, you might want to extend the seam mask to support 3 channels (rgb) using: 3d_mak = np.stack([1d_mask] * 3, axis=2), and then use it to create a resized version.
         """
-    #     call super
-        # todo - bar - he used the function in the parent class,
-        #  why did he do that? lets move it back here to be different from him
-        super().remove_seam()
+        #     call super
+        seam_to_remove = self.seam_history[-1]
+        self.w -= 1
+        mask = np.ones_like(self.resized_gs, dtype=bool)
+
+        for row, col in enumerate(seam_to_remove):
+            mask[row, col] = False
+            self.mask[row, col] = False
+
+        self.resized_gs = self.resized_gs[mask].reshape(self.h, self.w, 1)
+        mask = np.squeeze(np.stack([mask] * 3, axis=2))
+        self.resized_rgb = self.resized_rgb[mask].reshape(self.h, self.w, 3)
+        self.mask = np.squeeze(self.mask, axis=2)
 
     # @NI_decor
     def seams_addition(self, num_add: int):
@@ -371,18 +360,16 @@ class VerticalSeamImage(SeamImage):
         Guidelines & hints:
             np.ndarray is a rederence type. changing it here may affected outsde.
         """
-        # todo - bar - understand this, also remove the second line here, im pretty sure my first kline is just as good
-        h, w ,_= M.shape
-        h, w = M.shape[0],M.shape[1]
+        # todo - bar - improve
+        h, w, _ = M.shape
         for i in range(1, h):
             for j in range(w):
                 if j == 0:
-                    backtrack_mat[i, j] = np.argmin(M[i - 1, j : j + 2])
+                    backtrack_mat[i, j] = np.argmin(M[i - 1, j: j + 2])
                 elif j == w - 1:
-                    backtrack_mat[i, j] = np.argmin(M[i - 1, j - 1 : j + 1]) - 1
+                    backtrack_mat[i, j] = np.argmin(M[i - 1, j - 1: j + 1]) - 1
                 else:
-                    backtrack_mat[i, j] = np.argmin(M[i - 1, j - 1 : j + 2]) - 1
-
+                    backtrack_mat[i, j] = np.argmin(M[i - 1, j - 1: j + 2]) - 1
 
 
 class SCWithObjRemoval(VerticalSeamImage):
