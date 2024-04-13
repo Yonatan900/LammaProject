@@ -229,18 +229,14 @@ class VerticalSeamImage(SeamImage):
             self.backtrack_seam()
             self.update_ref_mat()
             self.remove_seam()
-            self.paint_seam()  # todo bars special code, he invented this function
 
-    def paint_seam(self):  # todo -  bar idea - change back to seamS
-        current_seam = self.seam_history[-1]
-        for i, s_i in current_seam:
-            self.cumm_mask[self.other_idx_map[i, s_i], self.idx_map[i, s_i]] = False
+        self.paint_seams()
+        self.seam_history = []
 
+    def paint_seams(self):
         cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
         cumm_mask_rgb = cumm_mask_rgb.squeeze()
         self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1, 0, 0])
-        self.seam_history.pop()
-
 
     def init_mats(self):
         self.E = self.calc_gradient_magnitude()
@@ -300,6 +296,7 @@ class VerticalSeamImage(SeamImage):
         for row, col in seam_to_remove:
             mask[row, col] = False
             self.mask[row, col] = False
+            self.cumm_mask[self.other_idx_map[row, col], self.idx_map[row, col]] = False
 
         self.resized_gs = self.resized_gs[mask].reshape(self.h, self.w, 1)
         mask = np.squeeze(np.stack([mask] * 3, axis=2))
