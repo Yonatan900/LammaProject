@@ -89,12 +89,14 @@ class SeamImage:
             - keep in mind that values must be in range [0,1]
             - np.gradient or other off-the-shelf tools are NOT allowed, however feel free to compare yourself to them
         """
-        rolled_matrix_rows = np.roll(self.resized_gs, -1, axis=0)
-        rolled_matrix_cols = np.roll(self.resized_gs, -1, axis=1)
-        rolled_matrix_rows[-1, :] = 0
-        rolled_matrix_cols[:, -1] = 0
-        diff_downward = rolled_matrix_rows - self.resized_gs
-        diff_right = rolled_matrix_cols - self.resized_gs
+        rolled_up = np.roll(self.resized_gs, -1, axis=0)
+        rolled_up[-1, :] = 0
+
+        rolled_left = np.roll(self.resized_gs, -1, axis=1)
+        rolled_left[:, -1] = 0
+
+        diff_downward = rolled_up - self.resized_gs
+        diff_right = rolled_left - self.resized_gs
 
         return np.clip(np.sqrt(np.square(diff_downward) + np.square(diff_right)), 0, 1)
 
