@@ -117,7 +117,7 @@ class SeamImage:
         self.seams_rgb = np.rot90(self.seams_rgb, -1 if clockwise else 1)
 
         self.idx_map_h = np.rot90(self.idx_map_h, -1 if clockwise else 1)
-        self.idx_map_v = np.rot90(self.idx_map_v, --1 if clockwise else 1)
+        self.idx_map_v = np.rot90(self.idx_map_v, 1 if clockwise else -1)
 
         self.h, self.w = self.resized_gs.shape[:2]
 
@@ -125,7 +125,7 @@ class SeamImage:
         pass
 
     def update_ref_mat(self):
-        for i, s in enumerate(self.seam_history[-1]):
+        for i, s in self.seam_history[-1]:
             self.idx_map[i, s:] += 1
 
     def backtrack_seam(self):
@@ -234,16 +234,17 @@ class VerticalSeamImage(SeamImage):
     def paint_seam(self, v_or_h_flag: str):  # todo -  bar idea - change back to seamS
         current_seam = self.seam_history[-1]
         if v_or_h_flag == "horizontal":
-            for i, s_i in enumerate(current_seam):
+            for i, s_i in current_seam:
                 self.cumm_mask[self.idx_map_h[i, s_i], self.idx_map_v[i, s_i]] = False
         else:
-            for i, s_i in enumerate(current_seam):
+            for i, s_i in current_seam:
                 self.cumm_mask[self.idx_map_v[i, s_i], self.idx_map_h[i, s_i]] = False
 
         cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
         cumm_mask_rgb = cumm_mask_rgb.squeeze()
         self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1, 0, 0])
         self.seam_history.pop()
+
 
     def init_mats(self):
         self.E = self.calc_gradient_magnitude()
@@ -275,17 +276,15 @@ class VerticalSeamImage(SeamImage):
 
     # @NI_decor
     def backtrack_seam(self):
-        # todo - bar - improve to be backtracking with lookahead
         """ Backtracks a seam for Seam Carving as taught in lecture
         """
         seam = []
         current_col = np.argmin(self.M[-1])
 
         for row in range(self.h - 1, -1, -1):
-            seam.append(current_col)
+            seam.append((row, current_col))
             current_col += self.backtrack_mat[row, current_col][0]
 
-        seam.reverse()
         self.seam_history.append(seam)
 
     # @NI_decor
@@ -300,7 +299,7 @@ class VerticalSeamImage(SeamImage):
         self.w -= 1
         mask = np.ones_like(self.resized_gs, dtype=bool)
 
-        for row, col in enumerate(seam_to_remove):
+        for row, col in seam_to_remove:
             mask[row, col] = False
             self.mask[row, col] = False
 
