@@ -180,23 +180,17 @@ class VerticalSeamImage(SeamImage):
         cv = np.abs(rolled_left - rolled_right)
         cr = np.abs(rolled_right - rolled_left) + np.abs(rolled_left - rolled_down)
 
-        m_img[1:, :] = np.inf
-
-        # todo - refactor cheating
         for i in range(1, self.h):
-            left = np.roll(m_img[i - 1, :], 1)
-            left[0] = np.inf
+            rolled_right = np.roll(m_img[i - 1, :], 1)
+            rolled_left = np.roll(m_img[i - 1, :], -1)
 
-            vertical = m_img[i - 1, :]
+            rolled_right[0] = np.inf
+            rolled_left[-1] = np.inf
 
-            right = np.roll(m_img[i - 1, :], -1)
-            right[-1] = np.inf
+            minimal = np.min(np.stack([rolled_right + cl[i, :], m_img[i - 1, :] + cv[i, :], rolled_left + cr[i, :]]),
+                             axis=0)
+            m_img[i, :] = self.E[i, :] + minimal
 
-            total_left = left + cl[i, :]
-            total_vertical = vertical + cv[i, :]
-            total_right = right + cr[i, :]
-
-            m_img[i, :] = self.E[i, :] + np.min(np.stack([total_left, total_vertical, total_right]), axis=0)
         return m_img
 
     # @NI_decor
@@ -356,7 +350,7 @@ class VerticalSeamImage(SeamImage):
         Guidelines & hints:
             np.ndarray is a rederence type. changing it here may affected outsde.
         """
-        # todo - bar - improve
+        # todo - improve backtracking
         h, w, _ = M.shape
         for i in range(1, h):
             for j in range(w):
