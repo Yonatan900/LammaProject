@@ -169,16 +169,7 @@ class VerticalSeamImage(SeamImage):
         """
         m_img = np.copy(self.E)
 
-        rolled_left = np.roll(self.E, -1, axis=1)
-        rolled_left[:, -1] = 0
-        rolled_right = np.roll(self.E, 1, axis=1)
-        rolled_right[:, 0] = 0
-        rolled_down = np.roll(self.E, 1, axis=0)
-        rolled_down[0, :] = 0
-
-        cl = np.abs(rolled_right - rolled_down) + np.abs(rolled_right - rolled_left)
-        cv = np.abs(rolled_left - rolled_right)
-        cr = np.abs(rolled_right - rolled_left) + np.abs(rolled_left - rolled_down)
+        self.cl, self.cv, self.cr = self.calculate_cl_cv_cr()
 
         for i in range(1, self.h):
             rolled_right = np.roll(m_img[i - 1, :], 1)
@@ -187,14 +178,14 @@ class VerticalSeamImage(SeamImage):
             rolled_right[0] = np.inf
             rolled_left[-1] = np.inf
 
-            minimal = np.min(np.stack([rolled_right + cl[i, :], m_img[i - 1, :] + cv[i, :], rolled_left + cr[i, :]]),
+            minimal = np.min(np.stack([rolled_right + self.cl[i, :], m_img[i - 1, :] + self.cv[i, :], rolled_left + self.cr[i, :]]),
                              axis=0)
             m_img[i, :] = self.E[i, :] + minimal
 
         return m_img
 
     # @NI_decor
-    def seams_removal(self, num_remove: int):  # flag is bar idea - remove
+    def seams_removal(self, num_remove: int):
         """ Iterates num_remove times and removes num_remove vertical seams
 
         Parameters:
@@ -220,14 +211,29 @@ class VerticalSeamImage(SeamImage):
         """
         for i in range(num_remove):
             self.init_mats()
-            VerticalSeamImage.calc_bt_mat(self.M, self.E, self.backtrack_mat)
-            # todo - if we want to backtrack inside M - we need to remove this
+
+            # we do this outside because numba has problems supporting np.roll
+            VerticalSeamImage.calc_bt_mat(self.M, self.backtrack_mat, self.cl, self.cv, self.cr)
+
             self.backtrack_seam()
             self.update_ref_mat()
             self.remove_seam()
 
         self.paint_seams()
         self.seam_history = []
+
+    def calculate_cl_cv_cr(self):
+        rolled_left = np.roll(self.E, -1, axis=1)
+        rolled_left[:, -1] = 0
+        rolled_right = np.roll(self.E, 1, axis=1)
+        rolled_right[:, 0] = 0
+        rolled_down = np.roll(self.E, 1, axis=0)
+        rolled_down[0, :] = 0
+
+        cl = np.abs(rolled_right - rolled_down) + np.abs(rolled_right - rolled_left)
+        cv = np.abs(rolled_left - rolled_right)
+        cr = np.abs(rolled_right - rolled_left) + np.abs(rolled_left - rolled_down)
+        return cl, cv, cr
 
     def paint_seams(self):
         cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
@@ -340,7 +346,7 @@ class VerticalSeamImage(SeamImage):
     # @NI_decor
     @staticmethod
     @jit(nopython=True)
-    def calc_bt_mat(M, E, backtrack_mat):
+    def calc_bt_mat(M, backtrack_mat, cl, cv, cr):
         """ Fills the BT back-tracking index matrix. This function is static in order to support Numba. To use it, uncomment the decorator above.
 
         Recommnded parameters (member of the class, to be filled):
@@ -350,16 +356,18 @@ class VerticalSeamImage(SeamImage):
         Guidelines & hints:
             np.ndarray is a rederence type. changing it here may affected outsde.
         """
-        # todo - improve backtracking
         h, w, _ = M.shape
         for i in range(1, h):
             for j in range(w):
                 if j == 0:
-                    backtrack_mat[i, j] = np.argmin(M[i - 1, j: j + 2])
+                    arrayed_values = np.array([cv[i, j][0] + M[i - 1, j][0], cr[i, j][0] + M[i - 1, j + 1][0]])
+                    backtrack_mat[i, j] = np.argmin(arrayed_values)
                 elif j == w - 1:
-                    backtrack_mat[i, j] = np.argmin(M[i - 1, j - 1: j + 1]) - 1
+                    arrayed_values = np.array([cv[i, j][0] + M[i - 1, j][0], cl[i, j][0] + M[i - 1, j - 1][0]])
+                    backtrack_mat[i, j] = np.argmin(arrayed_values) - 1
                 else:
-                    backtrack_mat[i, j] = np.argmin(M[i - 1, j - 1: j + 2]) - 1
+                    arrayed_values = np.array([cv[i, j][0] + M[i - 1, j][0], cl[i, j][0] + M[i - 1, j - 1][0], cr[i, j][0] + M[i - 1, j + 1][0]])
+                    backtrack_mat[i, j] = np.argmin(arrayed_values) - 1
 
 
 class SCWithObjRemoval(VerticalSeamImage):
