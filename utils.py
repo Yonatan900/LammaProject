@@ -198,7 +198,7 @@ class VerticalSeamImage(SeamImage):
         return m_img
 
     # @NI_decor
-    def seams_removal(self, num_remove: int, flag: str):  # flag is bar idea - remove
+    def seams_removal(self, num_remove: int):  # flag is bar idea - remove
         """ Iterates num_remove times and removes num_remove vertical seams
 
         Parameters:
@@ -229,16 +229,12 @@ class VerticalSeamImage(SeamImage):
             self.backtrack_seam()
             self.update_ref_mat()
             self.remove_seam()
-            self.paint_seam(flag)  # todo bars special code, he invented this function
+            self.paint_seam()  # todo bars special code, he invented this function
 
-    def paint_seam(self, v_or_h_flag: str):  # todo -  bar idea - change back to seamS
+    def paint_seam(self):  # todo -  bar idea - change back to seamS
         current_seam = self.seam_history[-1]
-        if v_or_h_flag == "horizontal":
-            for i, s_i in current_seam:
-                self.cumm_mask[self.idx_map_h[i, s_i], self.idx_map_v[i, s_i]] = False
-        else:
-            for i, s_i in current_seam:
-                self.cumm_mask[self.idx_map_v[i, s_i], self.idx_map_h[i, s_i]] = False
+        for i, s_i in current_seam:
+            self.cumm_mask[self.other_idx_map[i, s_i], self.idx_map[i, s_i]] = False
 
         cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
         cumm_mask_rgb = cumm_mask_rgb.squeeze()
@@ -259,9 +255,10 @@ class VerticalSeamImage(SeamImage):
         Parameters:
             num_remove (int): number of horizontal seam to be removed
         """
-        self.idx_map = self.idx_map_v
         self.rotate_mats(clockwise=True)
-        self.seams_removal(num_remove, "horizontal")
+        self.idx_map = self.idx_map_v
+        self.other_idx_map = self.idx_map_h
+        self.seams_removal(num_remove)
         self.rotate_mats(clockwise=False)
 
     # @NI_decor
@@ -272,7 +269,8 @@ class VerticalSeamImage(SeamImage):
             num_remove (int): umber of vertical seam to be removed
         """
         self.idx_map = self.idx_map_h
-        self.seams_removal(num_remove, "veritcal")
+        self.other_idx_map = self.idx_map_v
+        self.seams_removal(num_remove)
 
     # @NI_decor
     def backtrack_seam(self):
