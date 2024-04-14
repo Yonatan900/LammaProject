@@ -51,6 +51,7 @@ class SeamImage:
 
         try:
             self.E = self.calc_gradient_magnitude()
+            self.check_e = self.E  # todo remove
         except NotImplementedError as e:
             print(e)
         #################
@@ -178,8 +179,9 @@ class VerticalSeamImage(SeamImage):
             rolled_right[0] = np.inf
             rolled_left[-1] = np.inf
 
-            minimal = np.min(np.stack([rolled_right + self.cl[i, :], m_img[i - 1, :] + self.cv[i, :], rolled_left + self.cr[i, :]]),
-                             axis=0)
+            minimal = np.min(
+                np.stack([rolled_right + self.cl[i, :], m_img[i - 1, :] + self.cv[i, :], rolled_left + self.cr[i, :]]),
+                axis=0)
             m_img[i, :] = self.E[i, :] + minimal
 
         return m_img
@@ -366,7 +368,8 @@ class VerticalSeamImage(SeamImage):
                     arrayed_values = np.array([cv[i, j][0] + M[i - 1, j][0], cl[i, j][0] + M[i - 1, j - 1][0]])
                     backtrack_mat[i, j] = np.argmin(arrayed_values) - 1
                 else:
-                    arrayed_values = np.array([cv[i, j][0] + M[i - 1, j][0], cl[i, j][0] + M[i - 1, j - 1][0], cr[i, j][0] + M[i - 1, j + 1][0]])
+                    arrayed_values = np.array([cv[i, j][0] + M[i - 1, j][0], cl[i, j][0] + M[i - 1, j - 1][0],
+                                               cr[i, j][0] + M[i - 1, j + 1][0]])
                     backtrack_mat[i, j] = np.argmin(arrayed_values) - 1
 
 
@@ -379,7 +382,6 @@ class SCWithObjRemoval(VerticalSeamImage):
         self.active_masks = active_masks
         self.obj_masks = {basename(img_path)[:-4]: self.load_image(img_path, format='L') for img_path in
                           glob.glob('images/obj_masks/*')}
-
         try:
             self.preprocess_masks()
         except KeyError:
@@ -397,8 +399,13 @@ class SCWithObjRemoval(VerticalSeamImage):
             Guidelines & hints:
                 - for every active mask we need make it binary: {0,1}
         """
-        raise NotImplementedError("TODO: Implement SeamImage.preprocess_masks")
-        print('Active masks:', self.active_masks)
+        for mask_name in self.active_masks:
+            mask = self.obj_masks[mask_name]
+            # Convert all non-zero pixels to 1
+            binary_mask = (mask > 0).astype(np.uint8)
+            self.obj_masks[mask_name] = binary_mask
+
+    # raise NotImplementedError("TODO: Implement SeamImage.preprocess_masks")
 
     # @NI_decor
     def apply_mask(self):
@@ -408,7 +415,18 @@ class SCWithObjRemoval(VerticalSeamImage):
                 - you need to apply the masks on other matrices!
                 - think how to force seams to pass through a mask's object..
         """
-        raise NotImplementedError("TODO: Implement SeamImage.apply_mask")
+        self.E = np.full_like(self.E, 1e4, dtype=np.float32)
+        for mask_name in self.active_masks:
+            mask = self.obj_masks[mask_name]
+            if mask is None:
+                continue
+
+
+            binary_mask = mask > 0
+            self.E[binary_mask] = 50
+        self.calc_M()
+
+    # raise NotImplementedError("TODO: Implement SeamImage.apply_mask")
 
     def init_mats(self):
         self.E = self.calc_gradient_magnitude()
